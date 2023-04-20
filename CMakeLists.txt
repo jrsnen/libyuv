@@ -5,6 +5,8 @@
 PROJECT ( YUV C CXX )	# "C" is required even for C++ projects
 CMAKE_MINIMUM_REQUIRED( VERSION 2.8 )
 OPTION( TEST "Built unit tests" OFF )
+OPTION( BUILD_ONLY_SHARED "Build only shared library" OFF )
+OPTION( LIBYUV_INSTALL "Install libyuv" ON )
 
 SET ( ly_base_dir	${PROJECT_SOURCE_DIR} )
 SET ( ly_src_dir	${ly_base_dir}/source )
@@ -22,17 +24,21 @@ LIST ( SORT			ly_unittest_sources )
 
 INCLUDE_DIRECTORIES( BEFORE ${ly_inc_dir} )
 
-# this creates the static library (.a)
-ADD_LIBRARY				( ${ly_lib_static} STATIC ${ly_source_files} )
+if(NOT BUILD_ONLY_SHARED)
+	# this creates the static library (.a)
+	ADD_LIBRARY				( ${ly_lib_static} STATIC ${ly_source_files} )
+endif()
 
 # this creates the shared library (.so)
 ADD_LIBRARY				( ${ly_lib_shared} SHARED ${ly_source_files} )
 SET_TARGET_PROPERTIES	( ${ly_lib_shared} PROPERTIES OUTPUT_NAME "${ly_lib_name}" )
 SET_TARGET_PROPERTIES	( ${ly_lib_shared} PROPERTIES PREFIX "lib" )
 
-# this creates the conversion tool
-ADD_EXECUTABLE			( yuvconvert ${ly_base_dir}/util/yuvconvert.cc )
-TARGET_LINK_LIBRARIES	( yuvconvert ${ly_lib_static} )
+if(NOT BUILD_ONLY_SHARED)
+	# this creates the conversion tool
+	ADD_EXECUTABLE			( yuvconvert ${ly_base_dir}/util/yuvconvert.cc )
+	TARGET_LINK_LIBRARIES	( yuvconvert ${ly_lib_static} )
+endif()
 
 
 INCLUDE ( FindJPEG )
@@ -73,13 +79,16 @@ if(TEST)
   endif()
 endif()
 
+if (LIBYUV_INSTALL)
+	# install the conversion tool, .so, .a, and all the header files
+	INSTALL ( PROGRAMS ${CMAKE_BINARY_DIR}/yuvconvert			DESTINATION bin )
+	if(NOT BUILD_ONLY_SHARED)
+		INSTALL ( TARGETS ${ly_lib_static}						DESTINATION lib )
+	endif()
+	INSTALL ( TARGETS ${ly_lib_shared} LIBRARY				DESTINATION lib RUNTIME DESTINATION bin )
+	INSTALL ( DIRECTORY ${PROJECT_SOURCE_DIR}/include/		DESTINATION include )
 
-# install the conversion tool, .so, .a, and all the header files
-INSTALL ( PROGRAMS ${CMAKE_BINARY_DIR}/yuvconvert			DESTINATION bin )
-INSTALL ( TARGETS ${ly_lib_static}						DESTINATION lib )
-INSTALL ( TARGETS ${ly_lib_shared} LIBRARY				DESTINATION lib RUNTIME DESTINATION bin )
-INSTALL ( DIRECTORY ${PROJECT_SOURCE_DIR}/include/		DESTINATION include )
-
-# create the .deb and .rpm packages using cpack
-INCLUDE ( CM_linux_packages.cmake )
+	# create the .deb and .rpm packages using cpack
+	INCLUDE ( CM_linux_packages.cmake )
+endif()
 
